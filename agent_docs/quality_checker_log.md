@@ -1,92 +1,112 @@
-# Quality Checker Log
-
-## Gate: FAIL
+# Quality Checker Review
 
 Date: 2026-11-16
 
-The current static character-sheet prototype is usable for local drafting and is reasonably safe as a self-contained GitHub Pages document, but the task's required Google/Firebase authentication and DM/player campaign-linking flows are not implemented. A medium functional defect also causes saved dynamic rows to be duplicated after reload. Because a required flow is missing, this gate is `FAIL`.
+## Gate
 
-## Checklist derived from the brief and programmer handoff
+**FAIL**
 
-- [x] Self-contained responsive character-sheet page exists.
-- [x] Editable identity, attributes, combat/vitals, notes, inventory, weapons, throwables, and stratagem fields exist.
-- [x] Local draft save/restore/clear and print controls exist.
-- [ ] Google login with Firebase authentication.
-- [ ] DM/player campaign linking and player-entered campaign link.
-- [ ] Server-backed persistence and authorization boundaries.
-- [ ] RPG-derived calculations; rules are not supplied.
-- [ ] Exact visual transformation of both supplied reference pages.
-- [ ] Browser console and viewport verification (environment limitation).
+The implementation has a concrete Firestore authorization flaw, and live browser/Firebase verification could not be performed because neither a browser nor the Firebase CLI/emulator is available in this environment.
 
-## Exact checks run
+## Review scope
 
-1. Read all project files, including `documents/task.md`, `documents/coordinator.md`, all files in `agent_docs`, `index.html`, and both PNG reference assets. The images were visually inspected at 897x1134 and 882x1126.
-2. `node --version` -> `v26.13.1`.
-3. Extracted the inline script to `%TEMP%\\heck-jumpers-qc-script.js`, then ran `node --check %TEMP%\\heck-jumpers-qc-script.js` -> PASS.
-4. `npm.cmd --version` -> `11.20.0`. PowerShell `npm --version` was blocked by the local execution policy; no project package manifest or test script exists.
-5. Static PowerShell assertions for doctype, `lang`, viewport, form, required character name, save control, responsive CSS, local storage, external assets, and inline event attributes -> PASS for required structure; no external assets or inline event attributes found.
-6. Tag-balance check for `form`, `script`, `section`, `table`, and `textarea` -> PASS: open/close counts match.
-7. Security-surface scan for Firebase/API-key-shaped values and `eval`, `innerHTML`, `document.write`, network calls, and storage usage -> PASS for no exposed credential/network code or obvious unsafe DOM sinks; only localStorage and confirm are used.
-8. `git diff --check` -> PASS; only normal LF-to-CRLF warnings were reported.
-9. Checked available tools (`html5validator`, `tidy`, `eslint`, `playwright`, Chrome, Edge, Firefox) -> NOT FOUND. Browser console, interaction, print rendering, narrow viewport, wide viewport, network, and actual GitHub Pages rendering are therefore `Unknown`.
-10. Searched the implementation for `inspiration`, `proficiency`, `saving throws`, and `passive perception` -> not found. The supplied reference pages visibly contain those sections and also separate physical-characteristic fields and a stratagem table; the implementation consolidates or omits several of them.
+Read before testing:
+
+- `agent_docs/quality_checker.md`
+- `documents/task.md`
+- `documents/coordinator.md`
+- `agent_docs/firebase_setup.md`
+- `agent_docs/Primary_developer.md`
+- `agent_docs/programmer.md`
+- `agent_docs/programmer_log.md`
+- `index.html`
+- `firestore.rules`
+- `Helldivers Page 1.png`
+- `Helldivers Page 2.png`
+
+The working tree was inspected with `git status --short --branch`. Existing programmer changes were preserved.
+
+## Checklist and results
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| Static character-sheet page | Pass | `index.html` contains the editable form, local draft controls, dynamic weapon/throwable rows, print styling, and responsive CSS. |
+| Firebase config wiring | Pass, live behavior Unknown | Firebase modular imports and config fields in `index.html` match `agent_docs/firebase_setup.md`; the API key is a browser key, not a service-account secret. Console restrictions cannot be verified from the repository. |
+| Google authentication | Unknown | `signInWithPopup`, `signOut`, and `onAuthStateChanged` are wired, but no browser session was available to test the configured GitHub Pages domain. |
+| Campaign creation/join/leave | Unknown | Client flows and short-code schema are present, but Firestore writes and rules were not deployed/emulator-tested here. |
+| DM/player privacy | Fail | See the high-severity finding below. The intended read-only DM behavior is present in the client and partly represented in rules, but player sheet membership enforcement is missing. |
+| RPG calculations | Pass with limitation | No calculations were invented; rules remain explicitly required before deriving values. |
+| Reference layout | Pass with notes | Futuristic dark grid/control-board styling and major sheet sections are represented. The source is flatter than the reference: inspiration, proficiency bonus, saving throws, explicit skill rows, physical-characteristic fields, separate weapon groupings, and the stratagem table are not modeled as distinct controls. |
+| Accessibility/static safety | Pass with notes | Labels, keyboard focus styles, live status text, table headers, and dynamic `aria-label`s exist. Browser contrast, keyboard, screen-reader, and responsive checks remain Unknown. No `innerHTML`, `document.write`, or `eval` usage was found. |
+| GitHub Pages compatibility | Pass with notes | Static `index.html` plus public Firebase CDN imports require no build step or paid service. Live deployment/network checks are Unknown. |
 
 ## Findings
 
-### QC-001 — high — Required authentication and campaign-linking flows are missing
+### High — sheet rules do not require campaign membership
 
-Reproduction: open `index.html` and inspect the page controls or source; search for Firebase, Google sign-in, campaign, DM, and player-linking flows.
+Severity: `high`
 
-Expected: a user can sign in with Google through Firebase, a DM can create a campaign/link, and a player can use that link to join so the DM can view authorized player sheets.
+Affected file/flow: `firestore.rules`, `campaigns/{campaignId}/sheets/{uid}` read/write/delete; player sheet access.
 
-Actual: the page only offers local browser storage. There is no Firebase SDK/configuration, authentication control, account identity, campaign identifier, join flow, server persistence, Firestore access, or authorization rule surface.
+Reproduction:
 
-Affected files/flow: `index.html`; authentication and DM/player campaign workflow.
+1. Sign in as any Firebase user who is not a member of a known campaign.
+2. Use the Firestore client or console to read `campaigns/<known-id>/sheets/<that-user-uid>` or write a document at that path with `ownerUid` equal to that UID.
+3. The rule evaluates `isSelf(uid)` only; it never checks `memberships/<campaignId>_<uid>`.
 
-The missing Firebase project configuration, Firestore schema, and authorization rules are already documented in `agent_docs/Primary_developer.md`; user decisions/action are required before safe implementation.
+Expected: a player can read/write/delete only their own sheet in a campaign they currently belong to.
 
-### QC-002 — medium — Dynamic weapon/throwable rows duplicate after restoring a saved draft
+Actual: any signed-in user who knows a campaign ID can read, create, update, or delete their own UID-named sheet in that campaign, whether or not they joined it. The same omission means self-sheet access is not revoked by membership deletion or campaign deletion.
 
-Reproduction: enter a character name, add or edit a weapon/throwable row, click `Save Draft`, reload the page, and inspect the rows. The same issue occurs after saving with all dynamic rows removed.
+Required action: add an active-membership check to sheet read/create/update/delete rules, while retaining the DM read-only exception. Deploy and test the corrected rules before approval.
 
-Expected: the saved rows appear exactly once, preserving the saved row count.
+### Medium — campaign ownership can be changed by an unrestricted DM update
 
-Actual: `restore()` adds every saved row, then the final unconditional `addRow('weapon'); addRow('throwable');` adds one extra blank row of each kind. Rows therefore increase on every reload and a saved zero-row state is not preserved.
+Severity: `medium`
 
-Affected file/flow: `index.html`, inline script `restore()` initialization.
+Affected file/flow: `firestore.rules`, `campaigns/{campaignId}` update.
 
-### QC-003 — medium — Reference-sheet sections are omitted or flattened
+Reproduction:
 
-Reproduction: compare the rendered field inventory/source with `Helldivers Page 1.png` and `Helldivers Page 2.png`.
+1. Authenticate as the current DM.
+2. Update the campaign document and change `dmId` to another UID, or change `inviteCode` without synchronizing the invite-code document.
 
-Expected: the interactive transformation represents the supplied sheet structure, including inspiration/proficiency, saving throws, skills, passive perception, distinct physical-characteristic fields, and the stratagem rows/columns shown in the references.
+Expected: ownership and invite-code invariants remain controlled by explicit, validated operations.
 
-Actual: core attributes and a free-form talents textarea are present, but inspiration, proficiency, saving throws, skills, and passive perception are absent; physical characteristics are one textarea; stratagems are one free-form textarea rather than structured rows. This is a product-scope gap, though the task provides no exact RPG rules for calculations.
+Actual: `allow update, delete: if isDm(campaignId)` checks only the existing owner and imposes no constraints on the replacement document. A current DM can transfer ownership or create a campaign/invite-code mismatch through a direct client write. No UI currently exposes this, but Firestore rules must not rely on UI omission.
 
-Affected file/flow: `index.html`, character-sheet field model.
+Required action: either make campaign ownership/invite-code fields immutable in rules or validate allowed updates explicitly. If ownership transfer is desired, define and test that workflow separately.
 
-### QC-004 — low — Dynamic table inputs have generic accessible names and no explicit header association
+### Low — reference sections are flattened or omitted
 
-Reproduction: navigate the weapon/throwable table with a screen reader or inspect the generated inputs. Dynamic inputs receive labels such as `weapon attack`, while the table headers are not scoped or programmatically associated.
+Severity: `low`
 
-Expected: each input is announced with its table context and column meaning, including row context where useful.
+Affected file/flow: character-sheet UI in `index.html`.
 
-Actual: `aria-label` provides a generic kind/field name and the visible headers are plain `th` elements without `scope`; duplicate rows are consequently difficult to distinguish for assistive-technology users.
+Expected: the interactive sheet closely preserves the supplied two-page structure.
 
-Affected file/flow: `index.html`, generated weapon/throwable rows.
+Actual: the implementation provides broad equivalents, but uses general textareas for talents/skills, physical characteristics, and stratagems; it does not expose distinct inspiration, proficiency bonus, saving-throw, or primary/secondary weapon controls shown in the references.
 
-## Accessibility, security, and deployment review
+Required action: rules/product clarification is needed before deciding which of these are functional fields and which are visual-only.
 
-- Static labels exist for the fixed inputs and textareas; the form has a required character name and browser validation is invoked before saving.
-- Visible `:focus`/`:focus-visible` styles and a live status region are present.
-- No secrets, Firebase credentials, external dependencies, network calls, `eval`, `innerHTML`, or dynamic HTML-string injection were found.
-- The document is static, uses no build step, has no external asset references, and is structurally compatible with GitHub Pages.
-- LocalStorage is intentionally per-browser and is not a privacy boundary for shared devices; the page clearly states that no account/network connection is used.
-- Browser-based contrast, keyboard, screen-reader, print, and responsive checks are `Unknown` because no supported browser executable or validator is installed. No user action is needed for the static checks; a browser-capable environment is needed to close those Unknowns.
+## Automated checks
 
-## Changed files
+Commands run:
 
-- Added `agent_docs/quality_checker_log.md` only.
-- Did not modify implementation files.
-- Did not modify `agent_docs/Primary_developer.md`; the required Firebase/game-rule decisions are already recorded there.
+- Extracted the module script from `index.html` and piped it to `node --check --input-type=module`: **PASS**.
+- PowerShell structural checks for doctype, viewport, form/script balance, and Firebase presence: **PASS** (`1/1` form and `1/1` script).
+- Static unsafe-sink scan for `innerHTML`, `document.write`, `eval(`, `serviceAccount`, `private_key`, and `secret`: **PASS**, no matches.
+- `git diff --check`: **PASS**; only normal Git LF/CRLF working-copy warnings were emitted.
+- `rg` inspection of `firestore.rules` authorization functions and match blocks: completed; findings above.
+- Firebase CLI/browser executable discovery: **NOT FOUND** for `firebase`, Chrome/Edge/Firefox. Node was available.
 
+## Unknown / user action required
+
+- Firebase CLI deployment and Firestore Rules Emulator tests are **Unknown**. A user or developer with Firebase project access must deploy the corrected rules and run authorized/unauthorized tests.
+- Google popup sign-in, authorized-domain behavior, Firestore persistence, campaign creation, short-code joining, multi-campaign membership, DM read-only viewing, and leave cleanup are **Unknown** until tested in a real browser at `https://wicksand.github.io/jumpers/` with two Google accounts.
+- API-key restriction settings are **Unknown** from repository inspection; confirm the key is restricted to the intended web referrers and required Firebase APIs in Google Cloud Console.
+- RPG rule details remain required before adding derived calculations or validation.
+
+## Final recommendation
+
+Do not deploy or accept the Firebase authorization model yet. Correct the membership check and campaign-field invariants, deploy the rules, then run the two-account browser and negative-path test matrix. After those results are recorded, perform a second Quality Checker gate.

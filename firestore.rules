@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function campaign(id) { return get(/databases/$(database)/documents/campaigns/$(id)).data; }
+    function membershipPath(campaignId, uid) {
+      return /databases/$(database)/documents/memberships/$(campaignId + '_' + uid);
+    }
+    function isMember(campaignId, uid) {
+      return signedIn()
+        && exists(membershipPath(campaignId, uid))
+        && get(membershipPath(campaignId, uid)).data.uid == uid
+        && get(membershipPath(campaignId, uid)).data.campaignId == campaignId;
+    }
+    function isPlayerMember(campaignId, uid) {
+      return isMember(campaignId, uid)
+        && get(membershipPath(campaignId, uid)).data.role == 'player';
+    }
+    function isDm(campaignId) {
+      return signedIn()
+        && campaign(campaignId).dmId == request.auth.uid
+        && isMember(campaignId, request.auth.uid)
+        && get(membershipPath(campaignId, request.auth.uid)).data.role == 'dm';
+    }
+
+    match /campaigns/{campaignId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'dmId', 'inviteCode', 'createdAt'])
+        && request.resource.data.dmId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.inviteCode is string
+        && request.resource.data.inviteCode.matches('^[A-Z0-9]{6,8}$');
+      allow read: if signedIn()
+        && (isDm(campaignId) || isMember(campaignId, request.auth.uid));
+
+      // Ownership and invite-code changes are not an approved client flow.
+      allow update, delete: if false;
+
+      match /sheets/{uid} {
+        // DMs read only active players' sheets; players read only their own.
+        allow read: if isPlayerMember(campaignId, uid)
+          && (isSelf(uid) || isDm(campaignId));
+        allow create: if isPlayerMember(campaignId, uid)
+          && isSelf(uid)
+          && request.resource.data.ownerUid == request.auth.uid;
+        allow update: if isPlayerMember(campaignId, uid)
+          && isSelf(uid)
+          && resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerUid == request.auth.uid;
+        allow delete: if isPlayerMember(campaignId, uid) && isSelf(uid);
+      }
+    }
+
+    match /inviteCodes/{code} {
+      // Code lookup intentionally exposes only the campaign ID to signed-in users.
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['campaignId'])
+        && request.resource.data.campaignId is string
+        && getAfter(/databases/$(database)/documents/campaigns/$(request.resource.data.campaignId)).data.dmId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/campaigns/$(request.resource.data.campaignId)).data.inviteCode == code;
+      // No approved code rotation/deletion flow; deny direct changes.
+      allow update, delete: if false;
+    }
+
+    match /memberships/{membershipId} {
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || isDm(resource.data.campaignId));
+      allow create: if signedIn()
+        && membershipId == request.resource.data.campaignId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['campaignId', 'uid', 'role', 'inviteCode', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'player'
+        && request.resource.data.inviteCode is string
+        && get(/databases/$(database)/documents/inviteCodes/$(request.resource.data.inviteCode)).data.campaignId == request.resource.data.campaignId
+        && campaign(request.resource.data.campaignId).inviteCode == request.resource.data.inviteCode;
+      allow create: if signedIn()
+        && membershipId == request.resource.data.campaignId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['campaignId', 'uid', 'role', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.role == 'dm'
+        && getAfter(/databases/$(database)/documents/campaigns/$(request.resource.data.campaignId)).data.dmId == request.auth.uid;
+      // Only a player can leave their own membership; roles cannot be edited.
+      allow delete: if signedIn()
+        && membershipId == resource.data.campaignId + '_' + resource.data.uid
+        && resource.data.uid == request.auth.uid
+        && resource.data.role == 'player';
+      allow update: if false;
+    }
+  }
+}
