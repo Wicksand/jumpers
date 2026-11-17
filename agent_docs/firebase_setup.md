@@ -9,8 +9,9 @@ Firebase messaging sender ID:"27826967478"
 Firebase app ID: "1:27826967478:web:fd8a46f6b74e3bbd4c6717"
 
 GitHub Pages URL:https://wicksand.github.io/jumpers/
-Firebase region: 
+Firebase region: nam5 (United States)
 
 Google sign-in enabled: yes
-Firestore created: no
+Firestore created: yes
 Authorized domains configured: yes
+Firebase API key:"AIzaSyA1cHS3wVtOGAVxFvxp2D-qj7072N1w6mI"
