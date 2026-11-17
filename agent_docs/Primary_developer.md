@@ -26,6 +26,19 @@ This file is the coordinator's communication channel for questions, approvals, a
 
 Implementation implication: Firestore rules must allow a DM to read, but not write, member sheets; allow each player to read and write only their own sheet; deny players access to other members' sheets; support membership in multiple campaigns; and allow a player to remove their own membership. Campaign join codes must be stored and validated without exposing unrelated campaign data.
 
+## RPG baseline approved - 2026-11-16
+
+- Core statistics use standard D&D 5e conventions.
+- Unless the workbook or a later decision specifies otherwise, use standard D&D 5e rules for calculations.
+- Spells are replaced by stratagems and advanced-tech abilities.
+- The source workbook is `Helldiver Campaign.xlsx` and includes Skill Trees, Soldier Class, Stratagems, Stratagem Comparisons, Weapons, Ship Upgrades, Planet Types, Weather, Surface Information, Ranks, Armor Benefits, and Lingering Injuries.
+- Inventory capacity is measured in slots from Strength:
+  - Strength 1-10: 30 slots.
+  - Strength 11-15: 40 slots.
+  - Strength 16-20: 50 slots.
+- Each item has an assigned slot cost. The exact slot cost should come from the workbook when available; otherwise mark it as Unknown rather than inventing a value.
+- The implementation may proceed with standard 5e-derived calculations, but custom mechanics that are not defined by 5e or the workbook must be recorded for later approval.
+
 ## Firebase implementation decisions - 2026-11-16
 
 - Firestore schema: `campaigns/{campaignId}`, `inviteCodes/{shortCode}`, `memberships/{campaignId_uid}`, and `campaigns/{campaignId}/sheets/{uid}`.
@@ -51,3 +64,10 @@ Implementation implication: Firestore rules must allow a DM to read, but not wri
 ### Required action before acceptance
 
 Deploy the current `firestore.rules` to Firebase and run the two-account negative-path matrix documented in `agent_docs/programmer_log.md`. Firebase rule compilation, deployment, and browser behavior remain `Unknown` until those user-side steps are performed. If deployment reports a syntax issue, provide the exact Firebase error before any rule relaxation.
+
+## Rules implementation status - 2026-11-16
+
+- Implemented in `index.html`: standard ability modifiers and Dexterity-based initiative.
+- Implemented in `index.html`: inventory capacity display and item rows using the approved Strength bands.
+- Armor class and hit-point maximum remain manual because armor configuration, class, level, and hit-die rules are not yet specified.
+- Workbook content is available for a later structured data-import pass. Undefined item slot costs remain user-entered rather than guessed.

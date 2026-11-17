@@ -2,7 +2,62 @@
 
 Date: 2026-11-16
 
-## Gate
+## Latest Gate — 2026-11-16
+
+**FAIL**
+
+The latest static review confirms that the previous high-severity membership authorization defect and campaign-field mutation defect are fixed in `firestore.rules`. The gate remains `FAIL` because Firebase rule deployment/emulator testing and real-browser testing could not be run in this environment.
+
+No implementation files were modified by this review.
+
+## Latest verification checklist
+
+| Area | Result | Evidence |
+| --- | --- | --- |
+| JavaScript syntax | Pass | Extracted the module script and ran `node --check`; exit code `0`. |
+| HTML/static safety | Pass | Doctype, viewport, form/script balance, Firebase wiring, and absence of `innerHTML`, `document.write`, and `eval` passed. |
+| Membership-gated sheet access | Pass, deployment Unknown | All sheet read/create/update/delete paths require `isPlayerMember(campaignId, uid)`; players are additionally restricted to `isSelf(uid)`. |
+| DM read-only access | Pass, deployment Unknown | DMs can read only active player sheets through `isDm(campaignId)`; no DM sheet create/update/delete rule is allowed. |
+| Player-only writes | Pass, deployment Unknown | Sheet writes require the addressed UID to equal the authenticated UID and an active `player` membership. |
+| Campaign ownership/invite invariants | Pass, deployment Unknown | Campaign update/delete and invite-code update/delete are denied; creation fields and creator ownership are constrained. |
+| Short-code joining | Pass, deployment Unknown | Client looks up a code, and player membership creation requires the invite-code/campaign-code match. |
+| Leaving campaigns | Pass, deployment Unknown | Client deletes the player sheet before membership; rules allow only a player to delete their own player membership. |
+| Browser/Firebase flows | Unknown | No browser, Firebase CLI, or Rules Emulator is available in this environment. |
+
+## Latest authorization review
+
+The prior high finding is resolved: a non-member can no longer access a UID-named sheet merely by knowing a campaign ID, because every sheet operation now requires active membership in that campaign. The prior campaign mutation finding is resolved: campaign ownership and invite-code fields cannot be updated or deleted through the rules.
+
+The approved permission model is represented as follows:
+
+- DMs can read member player sheets but cannot write or delete them.
+- Players can read/write/delete only their own sheet while actively joined as a player.
+- Players cannot read other players' sheets.
+- A user can hold memberships in multiple campaigns.
+- Joining is by six-to-eight-character short code.
+- A player can leave by deleting their own membership, after their sheet is deleted.
+
+## Exact remaining user actions
+
+1. Deploy the current `firestore.rules` to the `heck-jumpers` Firebase project and publish it. Do not loosen rules if deployment reports an error; record the exact error.
+2. Run the two-account negative-path matrix after deployment:
+   - non-member cannot read or write a known campaign sheet;
+   - player can read/write only their own active sheet;
+   - player cannot read another player's sheet;
+   - DM can read a member sheet but cannot create, update, or delete it;
+   - after leaving, the player loses sheet access.
+3. In a real browser at `https://wicksand.github.io/jumpers/`, test Google sign-in, campaign creation, short-code joining, multiple memberships, sheet save/restore, DM read-only viewing, and leaving a campaign.
+4. Confirm the restricted Firebase API key still permits the deployed GitHub Pages referrer and the Firebase APIs used by the app.
+5. Provide the RPG rules before adding derived calculations or validation; no rules were invented.
+
+## Automated checks run in latest review
+
+- Extracted module script with PowerShell and ran `node --check`: **PASS** (`NODE_EXIT=0`).
+- Static checks for doctype, viewport, form/script balance, Firebase wiring, unsafe sinks, membership gating, and immutable campaign rules: **PASS**.
+- `git diff --check`: **PASS** (`DIFF_EXIT=0`).
+- Browser/Firebase CLI discovery: **NOT FOUND**; live testing is **Unknown**.
+
+## Previous review history
 
 **FAIL**
 
@@ -110,3 +165,74 @@ Commands run:
 ## Final recommendation
 
 Do not deploy or accept the Firebase authorization model yet. Correct the membership check and campaign-field invariants, deploy the rules, then run the two-account browser and negative-path test matrix. After those results are recorded, perform a second Quality Checker gate.
+## Latest Quality Checker review — 2026-11-16
+
+### Gate: PASS WITH NOTES
+
+The latest implementation satisfies the requested static scope for standard ability-modifier math, Dexterity initiative, the supplied Strength inventory bands, item slot totals, local/remote persistence wiring, accessibility structure, and preservation of the Firebase flows. No blocker or high-severity issue was found in static review. Browser and live-Firebase behavior remain Unknown.
+
+### Files and context reviewed
+
+- `documents/task.md`
+- `documents/coordinator.md`
+- All files in `agent_docs/`
+- `index.html`
+- `firestore.rules`
+- `Helldivers Page 1.png` and `Helldivers Page 2.png`
+- `Helldiver Campaign.xlsx` (all 12 workbook sheets were inspected as source context)
+
+### Automated checks
+
+- Extracted the inline module script and ran `node --check`: **PASS** (`NODE_EXIT=0`).
+- `git diff --check`: **PASS** (`DIFF_EXIT=0`); only normal LF/CRLF working-copy warnings appeared.
+- Static structure checks: **PASS** — doctype, viewport, one balanced form, one balanced module script, Firebase imports/config, localStorage fallback, and no duplicate IDs.
+- Static safety scan: **PASS** — no `innerHTML`, `document.write`, or `eval` usage.
+- Firebase/rules source inspection: **PASS WITH NOTES** — membership-gated sheet rules and DM read-only paths are present; deployment and emulator compilation were not available.
+- Browser and Firebase CLI discovery: **NOT FOUND**. Browser, console, viewport, print, network, popup-auth, Firestore, and live rules checks are **Unknown**.
+
+### Checklist
+
+| Area | Result | Evidence / limitation |
+| --- | --- | --- |
+| Standard 5e ability modifiers | Pass with note | `Math.floor((score - 10) / 2)` is used, which handles negative modifiers correctly for normal scores. Score `0` is accepted by the input but currently displays no modifier; see finding below. |
+| Dexterity initiative | Pass | Initiative is read-only and is updated from the Dexterity modifier. |
+| Strength inventory capacity | Pass with note | Strength 1–10 → 30, 11–15 → 40, and 16+ → 50. The supplied rule only specifies through 20; behavior above 20 is an unapproved extension. |
+| Item slot totals | Pass | Each inventory row calculates `quantity × slots each`, updates used/remaining totals, and recalculates after row add/remove and restore. |
+| Persistence | Pass with notes | Local draft restore/save and Firebase campaign sheet save/restore are wired. Duplicate dynamic rows are avoided on restore. Live persistence and conflict behavior are Unknown. |
+| Accessibility | Pass with notes | Static labels, table headers, dynamic `aria-label`s, status live region, keyboard buttons, and focus styles are present. Screen-reader, contrast, keyboard, and responsive viewport behavior are Unknown without a browser. |
+| Firebase regression | Pass with notes | Google auth, campaign creation/join/leave, multi-campaign membership, player-only writes, and DM read-only sheet access remain represented. Rules deployment and two-account negative-path tests are Unknown. |
+| Workbook/reference handling | Pass with limitation | Workbook sheets and reference images were reviewed as context. No workbook data was imported into item/weapon/stratagem controls, and unspecified mechanics were not invented. |
+
+### Findings
+
+#### Medium — score 0 does not receive the standard 5e modifier
+
+Affected flow: ability modifier display and Dexterity initiative in `index.html`.
+
+Reproduction:
+
+1. Enter `0` in any ability field.
+2. Observe its modifier output and, for Dexterity, initiative.
+
+Expected: standard 5e modifier `floor((0 - 10) / 2) = -5`.
+
+Actual: `abilityModifier` returns `null` for any value that is not greater than zero, so the UI displays `—` and Dexterity initiative is blank.
+
+This is a medium issue because ordinary 5e character scores are normally positive, but the form explicitly permits zero. The implementation should either reject zero with `min="1"` or calculate zero as `-5`; the product owner should choose before implementation changes.
+
+#### Low — inventory behavior above Strength 20 is unspecified
+
+Affected flow: inventory capacity in `index.html`.
+
+Actual: every Strength value above 15 receives 50 slots, including values above 20.
+
+The supplied rule defines 16–20 as 50 slots but does not define 21+. This is recorded as a limitation rather than a failure; no additional RPG rule should be inferred.
+
+### Remaining Unknowns / user actions
+
+1. Test the deployed GitHub Pages URL in a real browser at `https://wicksand.github.io/jumpers/`.
+2. Deploy `firestore.rules` and run the documented two-account authorization matrix: non-member denial, player self-only access, DM read-only access, campaign joining, multiple campaigns, save/restore, and leave cleanup.
+3. Confirm the restricted Firebase API key still allows the GitHub Pages referrer and required Firebase APIs.
+4. Decide how score `0` should be treated and whether Strength above 20 is possible.
+5. Workbook import remains intentionally unimplemented; item slot costs and detailed weapon/stratagem fields must be mapped in a later pass if desired.
+

@@ -97,3 +97,15 @@ Review `index.html` and `firestore.rules`. Test Google sign-in on the configured
 4. If Firebase reports a rules syntax or field-set error, stop deployment and record the exact error; do not loosen the rules to make the client pass.
 
 No RPG rules were invented. Derived calculations remain blocked pending the rules document.
+
+## 2026-11-16 rules update
+
+Implemented the approved RPG baseline in `index.html`:
+
+- Ability modifiers use standard 5e `floor((score - 10) / 2)` math.
+- Initiative is derived from the Dexterity modifier.
+- Inventory capacity is 30 slots for Strength 1-10, 40 slots for Strength 11-15, and 50 slots for Strength 16-20.
+- Inventory item rows calculate quantity multiplied by slots per item and show used/remaining capacity.
+- The workbook `Helldiver Campaign.xlsx` was inspected. Its custom content is preserved as the source for a later structured import of skill trees, stratagems, weapons, armor, and other tables.
+
+Not invented: armor-class formulas, hit-point formulas, item slot costs absent from the workbook, and other custom mechanics not defined by 5e or the supplied workbook.
