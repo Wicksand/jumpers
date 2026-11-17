@@ -140,7 +140,7 @@
       document.querySelector('#clear-button').addEventListener('click', () => { if (!window.confirm('Clear this local character draft?')) return; localStorage.removeItem(storageKey); form.reset(); clearRows(); setStatus('Draft cleared.'); });
       document.querySelectorAll('[data-add-row]').forEach((button) => button.addEventListener('click', () => { addRow(button.dataset.addRow); setStatus('Row added. Save draft to keep the change.'); }));
       form.addEventListener('input', updateDerived);
-      document.querySelector('#sign-in-button').addEventListener('click', async () => { try { await signInWithPopup(auth, provider); } catch (error) { setStatus('Google sign-in failed or was cancelled.'); console.warn(error); } });
+      document.querySelector('#sign-in-button').addEventListener('click', async () => { try { await signInWithPopup(auth, provider); } catch (error) { const code = error?.code || 'unknown-error'; setStatus(`Google sign-in failed: ${code}`); console.error('Firebase Google sign-in failed.', error); } });
       document.querySelector('#sign-out-button').addEventListener('click', () => signOut(auth));
       document.querySelector('#create-campaign-button').addEventListener('click', () => createCampaign().catch((error) => { setStatus('Campaign creation failed.'); console.warn(error); }));
       document.querySelector('#join-campaign-button').addEventListener('click', () => joinCampaign().catch((error) => { setStatus('Campaign join failed.'); console.warn(error); }));
