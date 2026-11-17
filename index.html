@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Heck Jumpers character operations console">
+  <title>Heck Jumpers // Character Console</title>
+  <style>
+    :root { color-scheme: dark; --bg: #080a0d; --panel: #11151a; --panel-2: #171c22; --line: #66747c; --muted: #a8b5ba; --text: #f3f7f6; --accent: #f3a51d; --accent-2: #ffd36b; --danger: #ff6f61; --focus: #73e6ff; }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; min-width: 320px; color: var(--text); font: 14px/1.4 "Arial Narrow", Arial, sans-serif; letter-spacing: .03em; background-color: var(--bg); background-image: linear-gradient(rgba(121, 144, 151, .09) 1px, transparent 1px), linear-gradient(90deg, rgba(121, 144, 151, .09) 1px, transparent 1px); background-size: 24px 24px; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .app-shell { max-width: 1500px; margin: auto; padding: 24px clamp(14px, 3vw, 48px) 48px; }
+    .topbar { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+    .eyebrow, .section-title, legend { color: var(--accent-2); text-transform: uppercase; font-size: 11px; letter-spacing: .14em; }
+    h1 { margin: 2px 0 0; font-size: clamp(26px, 4vw, 44px); letter-spacing: .09em; font-weight: 700; }
+    .top-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .button { border: 1px solid var(--accent); border-radius: 3px; padding: 10px 14px; color: var(--text); background: transparent; text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+    .button:hover, .button:focus-visible { color: #111; background: var(--accent); }
+    .button.primary { color: #111; background: var(--accent); }
+    .button.danger { border-color: var(--danger); color: var(--danger); }
+    .button.danger:hover, .button.danger:focus-visible { color: #111; background: var(--danger); }
+    .status { min-height: 22px; color: var(--muted); font-size: 12px; }
+    .sheet { display: grid; gap: 14px; }
+    .panel { position: relative; border: 1px solid var(--line); border-radius: 10px; padding: 18px; background: rgba(17, 21, 26, .94); box-shadow: inset 0 0 0 1px rgba(255,255,255,.025); }
+    .panel::before { content: ""; position: absolute; top: -1px; left: 24px; width: 42px; height: 1px; background: var(--accent); }
+    .panel > h2, .panel > legend { margin: 0 0 14px; }
+    .identity { display: grid; grid-template-columns: 1.3fr .8fr 1fr; gap: 12px; }
+    .dashboard { display: grid; grid-template-columns: minmax(210px, .8fr) minmax(420px, 1.6fr) minmax(220px, .8fr); gap: 14px; align-items: start; }
+    .stat-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat { border: 1px solid var(--line); border-radius: 7px; padding: 10px; background: var(--panel-2); }
+    .stat label { display: block; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .stat input { width: 100%; margin-top: 4px; font-size: 24px; font-weight: 700; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .metric { border: 1px solid var(--line); border-radius: 7px; padding: 9px; text-align: center; }
+    .metric input { width: 100%; text-align: center; font-size: 22px; }
+    .vitals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+    .field { display: grid; gap: 5px; }
+    label { color: var(--muted); text-transform: uppercase; font-size: 10px; }
+    input, textarea { width: 100%; border: 1px solid #67767c; border-radius: 3px; padding: 9px 10px; color: var(--text); background: #0b0e11; }
+    input:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    textarea { min-height: 116px; resize: vertical; }
+    .notes { display: grid; gap: 14px; }
+    .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .table-wrap { overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; min-width: 560px; }
+    .data-table th { color: var(--accent-2); font-size: 10px; text-align: left; text-transform: uppercase; font-weight: 400; padding: 0 7px; }
+    .data-table td { padding: 0 4px; }
+    .data-table td:first-child { padding-left: 0; }
+    .data-table input { padding: 8px; }
+    .row-remove { border: 0; background: transparent; color: var(--danger); padding: 8px; }
+    .row-remove:hover, .row-remove:focus-visible { text-decoration: underline; }
+    .table-actions { margin-top: 8px; }
+    .inventory-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+    .inventory-grid .field input { text-align: center; }
+    .footer-note { margin-top: 18px; color: var(--muted); font-size: 11px; text-align: center; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    @media (max-width: 950px) { .dashboard { grid-template-columns: 1fr 1fr; } .dashboard > :first-child { grid-column: span 2; } .dashboard > :nth-child(2) { grid-column: span 2; } .inventory-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 620px) { .app-shell { padding: 16px 10px 30px; } .topbar, .identity, .two-column, .dashboard { display: grid; grid-template-columns: 1fr; } .dashboard > :first-child, .dashboard > :nth-child(2) { grid-column: auto; } .top-actions { justify-content: start; } .vitals, .metric-grid { grid-template-columns: 1fr 1fr; } .panel { padding: 13px; } }
+    @media print { body { background: #fff; color: #000; } .topbar .top-actions, .status, .table-actions, .row-remove, .footer-note { display: none; } .panel { break-inside: avoid; background: #fff; border-color: #222; } input, textarea { color: #000; background: #fff; border-color: #555; } label, .section-title, legend, .data-table th { color: #222; } }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar"><div><div class="eyebrow">Hell Divers RPG // Personnel Division</div><h1>HECK JUMPERS</h1></div><div class="top-actions"><button class="button primary" id="save-button" type="button">Save Draft</button><button class="button" id="print-button" type="button">Print Sheet</button><button class="button danger" id="clear-button" type="button">Clear Draft</button></div></header>
+    <div class="status" id="status" role="status" aria-live="polite">Local draft storage ready.</div>
+    <form class="sheet" id="character-form">
+      <section class="panel identity" aria-labelledby="identity-heading"><h2 class="section-title" id="identity-heading" hidden>Identity</h2><div class="field"><label for="character-name">Character name</label><input id="character-name" name="characterName" autocomplete="off" required></div><div class="field"><label for="rank-level">Rank / level</label><input id="rank-level" name="rankLevel" autocomplete="off"></div><div class="field"><label for="player-name">Player name</label><input id="player-name" name="playerName" autocomplete="name"></div></section>
+      <section class="dashboard" aria-label="Character overview"><div class="panel"><h2 class="section-title">Core attributes</h2><div class="stat-list"><div class="stat"><label for="strength">Strength</label><input id="strength" name="strength" type="number" min="0" max="99"></div><div class="stat"><label for="dexterity">Dexterity</label><input id="dexterity" name="dexterity" type="number" min="0" max="99"></div><div class="stat"><label for="constitution">Constitution</label><input id="constitution" name="constitution" type="number" min="0" max="99"></div><div class="stat"><label for="intelligence">Intelligence</label><input id="intelligence" name="intelligence" type="number" min="0" max="99"></div><div class="stat"><label for="wisdom">Wisdom</label><input id="wisdom" name="wisdom" type="number" min="0" max="99"></div><div class="stat"><label for="charisma">Charisma</label><input id="charisma" name="charisma" type="number" min="0" max="99"></div></div></div><div class="panel"><h2 class="section-title">Combat readiness</h2><div class="metric-grid"><div class="metric"><label for="armor">Armor class</label><input id="armor" name="armor" type="number" min="0"></div><div class="metric"><label for="initiative">Initiative</label><input id="initiative" name="initiative" type="number"></div><div class="metric"><label for="speed">Speed</label><input id="speed" name="speed" type="number" min="0"></div></div><div class="vitals"><div class="field"><label for="hit-max">Hit point maximum</label><input id="hit-max" name="hitMax" type="number" min="0"></div><div class="field"><label for="hit-current">Current hit points</label><input id="hit-current" name="hitCurrent" type="number" min="0"></div><div class="field"><label for="hit-temp">Temporary hit points</label><input id="hit-temp" name="hitTemp" type="number" min="0"></div></div></div><div class="notes"><section class="panel"><label for="personality">Personality traits</label><textarea id="personality" name="personality"></textarea></section><section class="panel"><label for="armor-benefits">Armor and benefits</label><textarea id="armor-benefits" name="armorBenefits"></textarea></section></div></section>
+      <section class="two-column"><section class="panel"><label for="inventory">Inventory</label><textarea id="inventory" name="inventory" placeholder="Credits, rations, gear..."></textarea><div class="inventory-grid" aria-label="Inventory capacity"><div class="field"><label for="stims">Stims</label><input id="stims" name="stims" type="number" min="0"></div><div class="field"><label for="bullets">Bullets</label><input id="bullets" name="bullets" type="number" min="0"></div><div class="field"><label for="shells">Shells</label><input id="shells" name="shells" type="number" min="0"></div><div class="field"><label for="magazines">Magazines</label><input id="magazines" name="magazines" type="number" min="0"></div><div class="field"><label for="clips">Clips</label><input id="clips" name="clips" type="number" min="0"></div><div class="field"><label for="other">Other</label><input id="other" name="other" type="number" min="0"></div></div></section><section class="panel"><label for="appearance">Physical characteristics</label><textarea id="appearance" name="appearance" placeholder="Age, height, weight, eyes, skin, hair..."></textarea><label for="talents" style="display:block;margin-top:12px">Talents and skills</label><textarea id="talents" name="talents"></textarea></section></section>
+      <section class="panel"><h2 class="section-title">Weapons</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Weapon name</th><th>Attack bonus</th><th>Damage / type</th><th>Ammunition</th><th><span class="sr-only">Remove</span></th></tr></thead><tbody id="weapon-rows"></tbody></table></div><div class="table-actions"><button class="button" type="button" data-add-row="weapon">Add weapon</button></div></section>
+      <section class="panel"><h2 class="section-title">Throwables</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Throwable name</th><th>DMG / use</th><th>Damage / type</th><th>Capacity</th><th><span class="sr-only">Remove</span></th></tr></thead><tbody id="throwable-rows"></tbody></table></div><div class="table-actions"><button class="button" type="button" data-add-row="throwable">Add throwable</button></div></section>
+      <section class="panel"><label for="stratagems">Stratagems</label><textarea id="stratagems" name="stratagems" placeholder="Stratagem name, call time, deploy time..."></textarea></section>
+    </form>
+    <p class="footer-note">Drafts are stored only in this browser. No account or network connection is used by this prototype.</p>
+  </main>
+  <script>
+    (() => {
+      const form = document.querySelector('#character-form'); const status = document.querySelector('#status'); const storageKey = 'heck-jumpers-character-draft-v1';
+      const rowFields = { weapon: ['name', 'attack', 'damage', 'ammo'], throwable: ['name', 'use', 'damage', 'capacity'] };
+      const setStatus = (message) => { status.textContent = message; };
+      const addRow = (kind, values = []) => { const row = document.createElement('tr'); row.dataset.rowType = kind; rowFields[kind].forEach((field, index) => { const cell = document.createElement('td'); const input = document.createElement('input'); input.type = 'text'; input.name = `${kind}-${field}[]`; input.value = values[index] || ''; input.autocomplete = 'off'; input.setAttribute('aria-label', `${kind} ${field}`); cell.append(input); row.append(cell); }); const action = document.createElement('td'); const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'row-remove'; remove.textContent = 'Remove'; remove.setAttribute('aria-label', `Remove ${kind}`); remove.addEventListener('click', () => { row.remove(); setStatus('Row removed. Save draft to keep the change.'); }); action.append(remove); row.append(action); document.querySelector(`#${kind}-rows`).append(row); };
+      const serialize = () => { const data = Object.fromEntries(new FormData(form).entries()); data.rows = {}; Object.keys(rowFields).forEach((kind) => { data.rows[kind] = [...document.querySelectorAll(`#${kind}-rows tr`)].map((row) => rowFields[kind].map((field) => row.querySelector(`[name="${kind}-${field}[]"]`).value)); }); return data; };
+      const restore = () => { try { const data = JSON.parse(localStorage.getItem(storageKey) || 'null'); if (!data) return; Object.entries(data).forEach(([key, value]) => { const input = form.elements.namedItem(key); if (input && typeof value === 'string') input.value = value; }); Object.keys(rowFields).forEach((kind) => (data.rows?.[kind] || []).forEach((values) => addRow(kind, values))); setStatus('Saved local draft restored.'); } catch (error) { setStatus('Saved draft could not be restored.'); console.warn(error); } };
+      document.querySelector('#save-button').addEventListener('click', () => { if (!form.reportValidity()) return; localStorage.setItem(storageKey, JSON.stringify(serialize())); setStatus(`Draft saved locally at ${new Date().toLocaleTimeString()}.`); });
+      document.querySelector('#print-button').addEventListener('click', () => window.print());
+      document.querySelector('#clear-button').addEventListener('click', () => { if (!window.confirm('Clear this local character draft?')) return; localStorage.removeItem(storageKey); form.reset(); Object.keys(rowFields).forEach((kind) => { document.querySelector(`#${kind}-rows`).replaceChildren(); }); setStatus('Draft cleared.'); });
+      document.querySelectorAll('[data-add-row]').forEach((button) => button.addEventListener('click', () => { addRow(button.dataset.addRow); setStatus('Row added. Save draft to keep the change.'); })); restore(); addRow('weapon'); addRow('throwable');
+    })();
+  </script>
+</body>
+</html>
